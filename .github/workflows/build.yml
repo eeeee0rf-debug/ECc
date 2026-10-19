@@ -13,31 +13,64 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Merge & Extract
+    # ── پارت ۱: merge دو نیم‌فایل و extract ──────────────────────────────
+    - name: Merge parts & extract
+      shell: pwsh
       run: |
-        $part1 = [System.IO.File]::ReadAllBytes("part1.zip")
-        $part2 = [System.IO.File]::ReadAllBytes("part2.zip")
-        $merged = $part1 + $part2
-        [System.IO.File]::WriteAllBytes("EC-CS2.zip", $merged)
-        Expand-Archive -Path "EC-CS2.zip" -DestinationPath "." -Force
-        Get-ChildItem "EC-CS2-Project\" | ForEach-Object {
-          Move-Item -Path $_.FullName -Destination "." -Force -ErrorAction SilentlyContinue
+        $p1 = [IO.File]::ReadAllBytes("part1.zip")
+        $p2 = [IO.File]::ReadAllBytes("part2.zip")
+        [IO.File]::WriteAllBytes("EC-CS2-fixed.zip", ($p1 + $p2))
+
+        # zip داخلش EC-CS2\ داره (نه EC-CS2-Project\)
+        Expand-Archive -Path "EC-CS2-fixed.zip" -DestinationPath "." -Force
+
+        # تأیید کن .sln اومد بیرون
+        if (-not (Test-Path "EC-CS2\EC-CS2.sln")) {
+          Write-Error "EC-CS2.sln not found after extraction — zip structure mismatch"
+          exit 1
         }
 
+    # ── پارت ۲: MSBuild setup ──────────────────────────────────────────────
     - name: Setup MSBuild
       uses: microsoft/setup-msbuild@v2
 
-    - name: Build
+    # ── پارت ۳: build ─────────────────────────────────────────────────────
+    - name: Build Release x64
+      shell: pwsh
       run: |
-        msbuild "EC-CS2.sln" /p:Configuration=Release /p:Platform=x64 /m /nologo /verbosity:minimal
+        msbuild "EC-CS2\EC-CS2.sln" `
+          /p:Configuration=Release `
+          /p:Platform=x64 `
+          /m `
+          /nologo `
+          /verbosity:minimal
 
+    # ── پارت ۴: collect output ────────────────────────────────────────────
     - name: Collect output
+      shell: pwsh
       run: |
-        New-Item -ItemType Directory -Force -Path "output"
-        Get-ChildItem -Recurse -Filter "*.dll" | Where-Object { $_.FullName -like "*Release*" } | Copy-Item -Destination "output\" -ErrorAction SilentlyContinue
-        Get-ChildItem -Recurse -Filter "*.exe" | Where-Object { $_.FullName -like "*Release*" } | Copy-Item -Destination "output\" -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Force -Path "output" | Out-Null
+
+        # DLL چیت
+        Get-ChildItem -Recurse -Path "EC-CS2" -Filter "EC-CS2.dll" |
+          Where-Object { $_.FullName -match "Release" } |
+          Copy-Item -Destination "output\" -ErrorAction SilentlyContinue
+
+        # Injector EXE — TargetName روی EC-CS2 ست شده توی vcxproj
+        Get-ChildItem -Recurse -Path "EC-CS2" -Filter "EC-CS2.exe" |
+          Where-Object { $_.FullName -match "Release" } |
+          Copy-Item -Destination "output\EC-Injector.exe" -ErrorAction SilentlyContinue
+
+        Write-Host "--- output contents ---"
         Get-ChildItem "output\"
 
+        # fail اگه هیچی نبود
+        if ((Get-ChildItem "output\").Count -eq 0) {
+          Write-Error "No output files collected — build may have silently failed"
+          exit 1
+        }
+
+    # ── پارت ۵: upload artifact ───────────────────────────────────────────
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
