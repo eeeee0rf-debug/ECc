@@ -44,7 +44,7 @@ jobs:
       run: |
         New-Item -ItemType Directory -Force -Path "output" | Out-Null
 
-        Get-ChildItem -Recurse -Filter "EC-CS2.dll" |
+        Get-ChildItem -Recurse -Filter "EC-CS2-DLL.dll" |
           Where-Object { $_.FullName -match "Release" } |
           Copy-Item -Destination "output\" -ErrorAction SilentlyContinue
 
