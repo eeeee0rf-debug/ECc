@@ -15,8 +15,8 @@ jobs:
 
     - name: Merge & Extract
       run: |
-        $part1 = [System.IO.File]::ReadAllBytes("EC-CS2-fixed-part1.zip")
-        $part2 = [System.IO.File]::ReadAllBytes("EC-CS2-fixed-part2.zip")
+        $part1 = [System.IO.File]::ReadAllBytes("part1.zip")
+        $part2 = [System.IO.File]::ReadAllBytes("part2.zip")
         $merged = $part1 + $part2
         [System.IO.File]::WriteAllBytes("EC-CS2.zip", $merged)
         Expand-Archive -Path "EC-CS2.zip" -DestinationPath "." -Force
