@@ -1,0 +1,39 @@
+name: EC CS2 Build
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Merge & Extract
+      run: |
+        $part1 = [System.IO.File]::ReadAllBytes("EC-CS2-part1.zip")
+        $part2 = [System.IO.File]::ReadAllBytes("EC-CS2-part2.zip")
+        $merged = $part1 + $part2
+        [System.IO.File]::WriteAllBytes("EC-CS2.zip", $merged)
+        Expand-Archive -Path "EC-CS2.zip" -DestinationPath "." -Force
+        Get-ChildItem "EC-CS2-Project\" | ForEach-Object {
+          Move-Item -Path $_.FullName -Destination "." -Force -ErrorAction SilentlyContinue
+        }
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Build
+      run: |
+        msbuild "EC-CS2.sln" /p:Configuration=Release /p:Platform=x64 /m /nologo /verbosity:minimal
+
+    - name: Collect output
+      run: |
+        New-Item -ItemType Directory -Force -Path "output"
+        Get-ChildItem -Recurse -Filter "*.dll" | Where-Object { $_.FullName -like "*Release*" } | Copy-Item -Destination "output\" -ErrorAction SilentlyContinue
+        Get-ChildItem -Recurse -Filter "*.exe" | Where-Object { $_.FullName -like "*Release*" } | Copy-Item -Destination "output\" -ErrorAction SilentlyContinue
+        Get-Ch
