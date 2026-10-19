@@ -20,9 +20,8 @@ jobs:
         $p2 = [IO.File]::ReadAllBytes("part2.zip")
         [IO.File]::WriteAllBytes("EC-CS2-fixed.zip", ($p1 + $p2))
         Expand-Archive -Path "EC-CS2-fixed.zip" -DestinationPath "." -Force
-
         if (-not (Test-Path "EC-CS2.sln")) {
-          Write-Error "EC-CS2.sln not found — zip structure mismatch"
+          Write-Error "EC-CS2.sln not found"
           exit 1
         }
 
@@ -55,19 +54,21 @@ jobs:
       run: |
         New-Item -ItemType Directory -Force -Path "output" | Out-Null
 
-        Get-ChildItem -Recurse -Filter "EC-CS2-DLL.dll" |
-          Where-Object { $_.FullName -match "Release" } |
-          Copy-Item -Destination "output\" -ErrorAction SilentlyContinue
+        # DLL — مسیر دقیق
+        if (Test-Path "x64\Release\EC-CS2-DLL.dll") {
+          Copy-Item "x64\Release\EC-CS2-DLL.dll" "output\"
+        }
 
-        Get-ChildItem -Recurse -Filter "EC-CS2.exe" |
-          Where-Object { $_.FullName -match "Release" } |
-          Copy-Item -Destination "output\EC-Injector.exe" -ErrorAction SilentlyContinue
+        # Injector EXE — مسیر دقیق
+        if (Test-Path "x64\Release\EC-CS2.exe") {
+          Copy-Item "x64\Release\EC-CS2.exe" "output\EC-Injector.exe"
+        }
 
         Write-Host "--- output contents ---"
         Get-ChildItem "output\"
 
-        if ((Get-ChildItem "output\").Count -eq 0) {
-          Write-Error "No output files — build may have silently failed"
+        if (-not (Test-Path "output\EC-CS2-DLL.dll")) {
+          Write-Error "EC-CS2-DLL.dll missing — build failed"
           exit 1
         }
 
